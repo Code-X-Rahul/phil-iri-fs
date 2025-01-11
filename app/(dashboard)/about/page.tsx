@@ -153,7 +153,7 @@ export default function AboutPage() {
                 src="/reading-book2.png"
                 alt="Assessment Process Illustration"
                 fill
-                className="object-fill"
+                className="object-scale-down"
               />
             </div>
           </div>
