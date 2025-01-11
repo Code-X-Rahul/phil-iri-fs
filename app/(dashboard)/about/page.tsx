@@ -150,10 +150,10 @@ export default function AboutPage() {
 
             <div className="relative h-[400px] rounded-lg overflow-hidden">
               <Image
-                src="/placeholder.svg"
+                src="/reading-book2.png"
                 alt="Assessment Process Illustration"
                 fill
-                className="object-cover"
+                className="object-fill"
               />
             </div>
           </div>

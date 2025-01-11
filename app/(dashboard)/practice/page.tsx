@@ -14,7 +14,7 @@ import { Button } from "@/common/components/button";
 import { Timer } from "./components/timer";
 import { QuestionCard } from "./components/question-card";
 
-// Dummy questions data
+
 const questions = [
   {
     id: 1,
@@ -27,7 +27,7 @@ const questions = [
       { id: "d", text: "The impact of literature" },
     ],
   },
-  // Add more questions here...
+
 ].concat(
   Array(19)
     .fill(null)
