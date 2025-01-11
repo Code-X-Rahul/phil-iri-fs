@@ -74,13 +74,30 @@ export function Header() {
 
         {/* Mobile Navigation */}
         <div className="md:hidden flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full hover:text-[#0052CC]"
-          >
-            <User className="h-5 w-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full hover:text-[#0052CC]"
+              >
+                <User className="h-5 w-5" />
+                <span className="sr-only">User menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem>
+                <Link href="/login" className="w-full">
+                  Login
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/register" className="w-full">
+                  Register
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
