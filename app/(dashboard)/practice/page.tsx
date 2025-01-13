@@ -1,54 +1,54 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+
+import { gradeQuestions, readingPassages } from "@/common/data/data";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/common/components/card";
-import { Button } from "@/common/components/button";
+import { RadioGroup, RadioGroupItem } from "@/common/components/radio-group";
+import { Label } from "@/common/components/label";
+import { AssessmentTypeSelector } from "./components/assessment-type-selector";
+import { SpeechAssessment } from "./components/reading/speech-assessment";
+import { ReadingResults } from "./components/reading/reading-result";
 import { Timer } from "./components/timer";
-import { QuestionCard } from "./components/question-card";
+import { ReadingPassage } from "./components/quiz/reading-passage";
+import { QuestionCard } from "./components/quiz/question-card";
+import { Button } from "@/common/components/button";
+import { ResultsModal } from "./components/quiz/result-modal";
 
-
-const questions = [
-  {
-    id: 1,
-    category: "Reading Comprehension",
-    question: "What is the main idea of the passage?",
-    options: [
-      { id: "a", text: "The importance of reading" },
-      { id: "b", text: "The history of books" },
-      { id: "c", text: "The future of digital media" },
-      { id: "d", text: "The impact of literature" },
-    ],
-  },
-
-].concat(
-  Array(19)
-    .fill(null)
-    .map((_, index) => ({
-      id: index + 2,
-      category: "Reading Comprehension",
-      question: `Sample Question ${index + 2}`,
-      options: [
-        { id: "a", text: "Option A" },
-        { id: "b", text: "Option B" },
-        { id: "c", text: "Option C" },
-        { id: "d", text: "Option D" },
-      ],
-    }))
-);
+type AssessmentType = "reading" | "quiz" | null;
 
 export default function PracticePage() {
-  const router = useRouter();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [hasStarted, setHasStarted] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+  const [, setHasStarted] = useState(false);
+  const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>(null);
+  const [showResults, setShowResults] = useState(false);
+  const [readingScore, setReadingScore] = useState({ correct: 0, total: 0 });
+  const [score, setScore] = useState({ total: 0, correct: 0 });
+
+  const calculateScore = () => {
+    const questions = gradeQuestions[selectedGrade!];
+    let correct = 0;
+
+    Object.entries(answers).forEach(([questionIndex, answer]) => {
+      if (questions[Number(questionIndex)].correctAnswer === answer) {
+        correct++;
+      }
+    });
+
+    setScore({
+      total: questions.length,
+      correct: correct,
+    });
+  };
 
   const handleAnswerSelect = (answer: string) => {
     setAnswers((prev) => ({
@@ -58,11 +58,7 @@ export default function PracticePage() {
   };
 
   const handleNextQuestion = () => {
-    if (!answers[currentQuestion]) {
-      alert("Please select an answer before proceeding to the next question.");
-      return;
-    }
-    if (currentQuestion < questions.length - 1) {
+    if (currentQuestion < gradeQuestions[selectedGrade!].length - 1) {
       setCurrentQuestion((prev) => prev + 1);
     } else {
       handleFinish();
@@ -75,83 +71,122 @@ export default function PracticePage() {
     }
   };
 
-  const handleFinish = useCallback(() => {
-    // Calculate score and show results
-    const score = Object.keys(answers).length;
-    alert(
-      `Quiz completed! You answered ${score} out of ${questions.length} questions.`
-    );
-    router.push("/");
-  }, [answers, router]);
+  const handleFinish = () => {
+    setIsFinished(true);
+    calculateScore();
+    setShowResults(true);
+  };
 
   const handleTimeUp = useCallback(() => {
     handleFinish();
-  }, [handleFinish]);
+  }, [isFinished, handleFinish]);
 
-  const startAssessment = () => {
+  const handleAssessmentTypeSelect = (type: AssessmentType) => {
+    setAssessmentType(type);
     setHasStarted(true);
   };
 
-  if (!hasStarted) {
+  const handleReadingComplete = (correctWords: number, totalWords: number) => {
+    setReadingScore({ correct: correctWords, total: totalWords });
+    setShowResults(true);
+  };
+
+  if (!selectedGrade) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-lg text-center">
+        <Card className="w-full max-w-lg">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-primary">
-              Reading Assessment
+            <CardTitle className="text-2xl font-bold text-[#0052CC] text-center">
+              Select Grade Level
             </CardTitle>
-            <CardDescription className="text-lg">
-              You are about to start a 30-minute reading assessment with 20
-              questions.
+            <CardDescription className="text-lg text-center">
+              Choose your grade level to begin the assessment
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-left space-y-2">
-              <h3 className="font-semibold">Instructions:</h3>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>You will have 30 minutes to complete all questions</li>
-                <li>Read each question carefully before answering</li>
-                <li>
-                  You can navigate between questions using the Previous and Next
-                  buttons
-                </li>
-                <li>
-                  The assessment will automatically submit when time runs out
-                </li>
-                <li>Make sure you have a stable internet connection</li>
-              </ul>
-            </div>
+          <CardContent>
+            <RadioGroup
+              onValueChange={(grade) => setSelectedGrade(Number(grade))}
+              className="space-y-4"
+            >
+              {[7, 8, 9, 10].map((grade) => (
+                <div
+                  key={grade}
+                  className="flex items-center space-x-2 border rounded-lg p-4 cursor-pointer hover:border-[#0052CC] transition-colors"
+                >
+                  <RadioGroupItem
+                    value={grade.toString()}
+                    id={`grade-${grade}`}
+                  />
+                  <Label
+                    htmlFor={`grade-${grade}`}
+                    className="flex-1 cursor-pointer"
+                  >
+                    Grade {grade}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <Button onClick={startAssessment} className="px-8" size="lg">
-              Start Assessment
-            </Button>
-          </CardFooter>
         </Card>
       </div>
     );
   }
 
+  if (!assessmentType) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-4xl">
+          <h1 className="text-2xl md:text-3xl font-bold text-center text-[#0052CC] mb-8">
+            Choose Assessment Type
+          </h1>
+          <AssessmentTypeSelector onSelect={handleAssessmentTypeSelect} />
+        </div>
+      </div>
+    );
+  }
+
+  if (assessmentType === "reading") {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-center text-[#0052CC] mb-8">
+            Reading Assessment - Grade {selectedGrade}
+          </h1>
+          <SpeechAssessment
+            text={readingPassages[selectedGrade][0].content}
+            onComplete={handleReadingComplete}
+          />
+          <ReadingResults
+            isOpen={showResults}
+            correctWords={readingScore.correct}
+            totalWords={readingScore.total}
+            grade={selectedGrade}
+            onClose={() => setShowResults(false)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50">
       <Timer duration={30} onTimeUp={handleTimeUp} />
 
       <div className="container mx-auto px-4 py-8">
+        <ReadingPassage
+          title={readingPassages[selectedGrade][0].title}
+          content={readingPassages[selectedGrade][0].content}
+        />
+
         <QuestionCard
           questionNumber={currentQuestion + 1}
-          totalQuestions={questions.length}
-          category={questions[currentQuestion].category}
-          question={questions[currentQuestion].question}
-          options={questions[currentQuestion].options}
+          totalQuestions={gradeQuestions[selectedGrade].length}
+          category={gradeQuestions[selectedGrade][currentQuestion].category}
+          question={gradeQuestions[selectedGrade][currentQuestion].question}
+          options={gradeQuestions[selectedGrade][currentQuestion].options}
           selectedAnswer={answers[currentQuestion] || null}
           onAnswerSelect={handleAnswerSelect}
         />
-
-        {!answers[currentQuestion] && (
-          <p className="text-red-500 text-center mt-4">
-            Please select an answer before proceeding.
-          </p>
-        )}
 
         <div className="flex justify-between mt-8 max-w-4xl mx-auto">
           <Button
@@ -163,11 +198,21 @@ export default function PracticePage() {
           </Button>
           <Button
             onClick={handleNextQuestion}
-            disabled={!answers[currentQuestion]}
+            className="bg-[#0052CC] hover:bg-[#0052CC]/90"
           >
-            {currentQuestion === questions.length - 1 ? "Finish" : "Next"}
+            {currentQuestion === gradeQuestions[selectedGrade].length - 1
+              ? "Finish"
+              : "Next"}
           </Button>
         </div>
+
+        <ResultsModal
+          isOpen={showResults}
+          totalQuestions={score.total}
+          correctAnswers={score.correct}
+          grade={selectedGrade}
+          onClose={() => setShowResults(false)}
+        />
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ export function QuestionCard({
           <div className="text-sm text-gray-500">
             Category: <span className="font-medium">{category}</span>
           </div>
-          <div className="text-lg font-medium">
+          <div className="text-lg font-medium whitespace-nowrap">
             {questionNumber} / {totalQuestions}
           </div>
         </div>
