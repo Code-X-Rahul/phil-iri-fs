@@ -26,7 +26,7 @@ type AssessmentType = "reading" | "quiz" | null;
 export default function PracticePage() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [isFinished, setIsFinished] = useState(false);
+  const [, setIsFinished] = useState(false);
   const [, setHasStarted] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
   const [assessmentType, setAssessmentType] = useState<AssessmentType>(null);
@@ -34,21 +34,7 @@ export default function PracticePage() {
   const [readingScore, setReadingScore] = useState({ correct: 0, total: 0 });
   const [score, setScore] = useState({ total: 0, correct: 0 });
 
-  const calculateScore = () => {
-    const questions = gradeQuestions[selectedGrade!];
-    let correct = 0;
 
-    Object.entries(answers).forEach(([questionIndex, answer]) => {
-      if (questions[Number(questionIndex)].correctAnswer === answer) {
-        correct++;
-      }
-    });
-
-    setScore({
-      total: questions.length,
-      correct: correct,
-    });
-  };
 
   const handleAnswerSelect = (answer: string) => {
     setAnswers((prev) => ({
@@ -71,15 +57,33 @@ export default function PracticePage() {
     }
   };
 
-  const handleFinish = () => {
-    setIsFinished(true);
-    calculateScore();
-    setShowResults(true);
-  };
+const calculateScore = useCallback(() => {
+  const questions = gradeQuestions[selectedGrade!];
+  let correct = 0;
+
+  Object.entries(answers).forEach(([questionIndex, answer]) => {
+    if (questions[Number(questionIndex)].correctAnswer === answer) {
+      correct++;
+    }
+  });
+
+  setScore({
+    total: questions.length,
+    correct: correct,
+  });
+}, [selectedGrade, answers, setScore]);
+
+const handleFinish = useCallback(() => {
+  setIsFinished(true);
+  calculateScore();
+  setShowResults(true);
+}, [setIsFinished, setShowResults, calculateScore]);
+
+
 
   const handleTimeUp = useCallback(() => {
     handleFinish();
-  }, [isFinished, handleFinish]);
+  }, [ handleFinish]);
 
   const handleAssessmentTypeSelect = (type: AssessmentType) => {
     setAssessmentType(type);
