@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, MicOff, CheckCircle, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/common/components/card";
@@ -25,60 +26,45 @@ export function SpeechAssessment({ text, onComplete }: SpeechAssessmentProps) {
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEdgeOrChrome, setIsEdgeOrChrome] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
 
-  useEffect(() => {
-    if (
-      (typeof window !== "undefined" && "SpeechRecognition" in window) ||
-      "webkitSpeechRecognition" in window
-    ) {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = "en-US";
+ useEffect(() => {
+   const SpeechRecognition =
+     window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      recognitionRef.current.onresult = (event) => {
-        let interimTranscript = "";
-        let finalTranscript = "";
+   if (!SpeechRecognition) {
+     setError("Speech recognition is not supported in this browser.");
+     return;
+   }
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
+   recognitionRef.current = new SpeechRecognition();
+   recognitionRef.current.continuous = true;
+   recognitionRef.current.interimResults = true;
+   recognitionRef.current.lang = "en-US";
 
-        setTranscript(finalTranscript + interimTranscript);
-      };
+   recognitionRef.current.onresult = (event) => {
+     const transcript = Array.from(event.results)
+       .map((result) => result[0].transcript)
+       .join("");
+     setTranscript(transcript);
+   };
 
-      recognitionRef.current.onerror = (event) => {
-        console.error("Speech recognition error", event.error);
-        setError(`Speech recognition error: ${event.error}`);
-        setIsListening(false);
-      };
+   recognitionRef.current.onerror = (event) => {
+     console.error("Speech recognition error", event.error);
+     setError(`Speech recognition error: ${event.error}`);
+   };
 
-      recognitionRef.current.onend = () => {
-        if (isListening) {
-          recognitionRef.current?.start();
-        }
-      };
-    } else {
-      setError("Speech recognition is not supported in this browser.");
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [isListening]);
+   return () => {
+     if (recognitionRef.current) {
+       recognitionRef.current.stop();
+     }
+   };
+ }, []);
 
   useEffect(() => {
     let animationFrameId: number;
@@ -100,8 +86,9 @@ export function SpeechAssessment({ text, onComplete }: SpeechAssessmentProps) {
         .then((stream) => {
           microphoneStreamRef.current = stream;
           audioContextRef.current = new (window.AudioContext ||
-            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-            
+            (window as unknown as { webkitAudioContext: typeof AudioContext })
+              .webkitAudioContext)();
+
           analyserRef.current = audioContextRef.current.createAnalyser();
           const source =
             audioContextRef.current.createMediaStreamSource(stream);
