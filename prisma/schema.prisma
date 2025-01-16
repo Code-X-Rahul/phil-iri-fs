@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  studentId      Int      @id @default(autoincrement())
+  name           String
+  email          String?  @unique
+  password       String
+  registeredDate DateTime @default(now())
+  scores         Score[]
+}
+
+model Teacher {
+  teacherId  Int        @id @default(autoincrement())
+  name       String
+  email      String     @unique
+  password   String
+  joinedDate DateTime   @default(now())
+  materials  Material[]
+  tests      Test[]
+}
+
+model Material {
+  materialId   Int      @id @default(autoincrement())
+  title        String
+  content      String // Can store file path or content
+  uploadedDate DateTime @default(now())
+  teacher      Teacher  @relation(fields: [teacherId], references: [teacherId])
+  teacherId    Int
+  tests        Test[]
+}
+
+model Test {
+  testId           Int        @id @default(autoincrement())
+  title            String
+  createdDate      DateTime   @default(now())
+  startTime        DateTime
+  endTime          DateTime
+  material         Material   @relation(fields: [materialId], references: [materialId])
+  materialId       Int
+  questions        Question[]
+  scores           Score[]
+  Teacher          Teacher?   @relation(fields: [teacherTeacherId], references: [teacherId])
+  teacherTeacherId Int?
+}
+
+model Question {
+  questionId    Int    @id @default(autoincrement())
+  questionText  String
+  options       Json // Store options as a JSON array
+  correctOption String
+  test          Test   @relation(fields: [testId], references: [testId])
+  testId        Int
+}
+
+model Score {
+  scoreId   Int      @id @default(autoincrement())
+  score     Int
+  dateTaken DateTime @default(now())
+  student   Student  @relation(fields: [studentId], references: [studentId])
+  studentId Int
+  test      Test     @relation(fields: [testId], references: [testId])
+  testId    Int
+}
