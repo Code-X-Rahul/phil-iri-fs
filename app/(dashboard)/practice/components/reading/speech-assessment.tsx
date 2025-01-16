@@ -26,7 +26,7 @@ export function SpeechAssessment({ text, onComplete }: SpeechAssessmentProps) {
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isEdgeOrChrome, setIsEdgeOrChrome] = useState(false);
+  // const [isEdgeOrChrome, setIsEdgeOrChrome] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
