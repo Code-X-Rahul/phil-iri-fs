@@ -5,16 +5,21 @@ export class CustomError extends Error {
     success: boolean;
     stack?: string;
 
-    constructor(message: string, statusCode: number = 500, data: any = null, stack?: string) {
+    constructor(message: string, statusCode: number = 500, data: any = null, error?: Error) {
         super(message);
         this.message = message;
-        this.statusCode = statusCode;
         this.data = data;
+        this.statusCode = statusCode;
         this.success = false;
-        this.stack = stack || new Error().stack;
+
 
         // Ensure the error name is correct
         this.name = this.constructor.name;
+
+        // Preserve the stack trace
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, this.constructor);
+        }
     }
 
     static badRequest(message: string, data: any = null): CustomError {
@@ -37,13 +42,13 @@ export class CustomError extends Error {
         return new CustomError(message, 409, data);
     }
 
-    static internal(message: string, data: any = null, stack?: string): CustomError {
-        return new CustomError(message, 500, data, stack);
+    static internal(message: string, data: any = null, error?: Error): CustomError {
+        return new CustomError(message, 500, data, error);
     }
 
     static fromPrismaError(error: any): CustomError {
-        const message = error.message || 'A database error occurred';
-        return new CustomError(message, 500, { prismaError: error });
+        const message = error.message || "A database error occurred";
+        return new CustomError(message, 500, { prismaError: error }, error);
     }
 
     toJSON(): Record<string, any> {
@@ -52,7 +57,7 @@ export class CustomError extends Error {
             data: this.data,
             success: this.success,
             statusCode: this.statusCode,
-            stack: process.env.NODE_ENV === 'development' ? this.stack : undefined, // Exclude stack in production
+
         };
     }
 }

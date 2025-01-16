@@ -1,14 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import type { Context } from "hono";
 import { env } from "hono/adapter";
-import { sign } from "hono/jwt";
-import { comparePassword, encryptPassword } from "../utils/helpers";
-import { CustomError } from "../core/CustomError";
-import { CustomResponse } from "../core/CustomResponse";
+import { ResponseUtil } from "../core/ResponseUtil";
+import { comparePassword, encryptPassword, generateTokens } from "../utils/helpers";
 
 
 const prisma = new PrismaClient();
 
+
+// Student Authentication
 export const register = async (c: Context) => {
   try {
     const { name, password } = await c.req.json<{
@@ -16,47 +16,47 @@ export const register = async (c: Context) => {
       password: string;
     }>();
 
-    if (!name) throw CustomError.badRequest("Name Not Provided");
-    if (!password) throw CustomError.badRequest("Password Not Provided");
+    // Validation
+    if (!name || !password) {
+      return c.json(
+        ResponseUtil.validationError("Name and password are required", {
+          name: !name ? "Name is required" : null,
+          password: !password ? "Password is required" : null,
+        })
+      );
+    }
 
     const hashedPassword = await encryptPassword(password);
     const createdStudent = await prisma.student.create({
       data: { name, password: hashedPassword },
     });
 
-    const token = await sign(
-      {
-        id: createdStudent.studentId,
-        name: createdStudent.name,
-        sub: createdStudent.studentId,
-        role: "admin",
-        exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
-      },
-      env(c, "node").JWT_SECRET
-    );
-
-    const refreshToken = await sign(
+    const tokens = await generateTokens(
       {
         id: createdStudent.studentId,
         name: createdStudent.name,
         sub: createdStudent.studentId,
         role: "student",
-        exp: Math.floor(Date.now() / 1000) + 2592000, // Token expires in 30 days
       },
       env(c, "node").JWT_SECRET
     );
 
-    const { password: _, ...rest } = createdStudent;
+    const { password: _, ...studentData } = createdStudent;
 
     return c.json(
-      CustomResponse.success("Student registered successfully", {
-        ...rest,
-        token,
-        refreshToken,
-      })
+      ResponseUtil.success(
+        {
+          ...studentData,
+          ...tokens,
+        },
+        "Student registered successfully"
+      )
     );
   } catch (error) {
-    throw CustomError.fromPrismaError(error);
+    if (error instanceof Error) {
+      return c.json(ResponseUtil.internalError(error.message));
+    }
+    return c.json(ResponseUtil.internalError());
   }
 };
 
@@ -68,55 +68,60 @@ export const login = async (c: Context) => {
       password: string;
     }>();
 
-    if (!studentId) throw CustomError.badRequest("Id Not Provided");
-    if (!name) throw CustomError.badRequest("Name Not Provided");
-    if (!password) throw CustomError.badRequest("Password Not Provided");
+    // Validation
+    if (!studentId || !name || !password) {
+      return c.json(
+        ResponseUtil.validationError("All fields are required", {
+          studentId: !studentId ? "Student ID is required" : null,
+          name: !name ? "Name is required" : null,
+          password: !password ? "Password is required" : null,
+        })
+      );
+    }
 
     const student = await prisma.student.findUnique({
       where: { studentId, name },
     });
 
-    if (!student) throw CustomError.notFound("Student not found!");
+    if (!student) {
+      return c.json(ResponseUtil.notFound("Student not found"));
+    }
 
     const isMatch = await comparePassword(password, student.password);
-    if (!isMatch) throw CustomError.unauthorized("Incorrect password!");
+    if (!isMatch) {
+      return c.json(ResponseUtil.unauthorized("Incorrect password"));
+    }
 
-    const token = await sign(
+    const tokens = await generateTokens(
       {
         id: student.studentId,
         name: student.name,
         sub: student.studentId,
         role: "student",
-        exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
       },
       env(c, "node").JWT_SECRET
     );
 
-    const refreshToken = await sign(
-      {
-        id: student.studentId,
-        name: student.name,
-        sub: student.studentId,
-        role: "student",
-        exp: Math.floor(Date.now() / 1000) + 2592000, // Token expires in 30 days
-      },
-      env(c, "node").JWT_SECRET
-    );
-
-    const { password: _, ...rest } = student;
+    const { password: _, ...studentData } = student;
 
     return c.json(
-      CustomResponse.success("Student logged in successfully", {
-        ...rest,
-        token,
-        refreshToken,
-      })
+      ResponseUtil.success(
+        {
+          ...studentData,
+          ...tokens,
+        },
+        "Student logged in successfully"
+      )
     );
   } catch (error) {
-    throw CustomError.fromPrismaError(error);
+    if (error instanceof Error) {
+      return c.json(ResponseUtil.internalError(error.message));
+    }
+    return c.json(ResponseUtil.internalError());
   }
 };
 
+// Teacher Authentication
 export const teacherRegister = async (c: Context) => {
   try {
     const { email, name, password } = await c.req.json<{
@@ -125,48 +130,48 @@ export const teacherRegister = async (c: Context) => {
       password: string;
     }>();
 
-    if (!email) throw CustomError.badRequest("Email Not Provided");
-    if (!name) throw CustomError.badRequest("Name Not Provided");
-    if (!password) throw CustomError.badRequest("Password Not Provided");
+    // Validation
+    if (!email || !name || !password) {
+      return c.json(
+        ResponseUtil.validationError("All fields are required", {
+          email: !email ? "Email is required" : null,
+          name: !name ? "Name is required" : null,
+          password: !password ? "Password is required" : null,
+        })
+      );
+    }
 
     const hashedPassword = await encryptPassword(password);
     const teacher = await prisma.teacher.create({
       data: { name, password: hashedPassword, email },
     });
 
-    const token = await sign(
+    const tokens = await generateTokens(
       {
         id: teacher.teacherId,
         name: teacher.name,
         sub: teacher.teacherId,
         role: "teacher",
-        exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
       },
       env(c, "node").JWT_SECRET
     );
 
-    const refreshToken = await sign(
-      {
-        id: teacher.teacherId,
-        name: teacher.name,
-        sub: teacher.teacherId,
-        role: "teacher",
-        exp: Math.floor(Date.now() / 1000) + 2592000, // Token expires in 30 days
-      },
-      env(c, "node").JWT_SECRET
-    );
-
-    const { password: _, ...rest } = teacher;
+    const { password: _, ...teacherData } = teacher;
 
     return c.json(
-      CustomResponse.success("Teacher registered successfully", {
-        ...rest,
-        token,
-        refreshToken,
-      })
+      ResponseUtil.success(
+        {
+          ...teacherData,
+          ...tokens,
+        },
+        "Teacher registered successfully"
+      )
     );
   } catch (error) {
-    throw CustomError.fromPrismaError(error);
+    if (error instanceof Error) {
+      return c.json(ResponseUtil.internalError(error.message));
+    }
+    return c.json(ResponseUtil.internalError());
   }
 };
 
@@ -178,51 +183,55 @@ export const teacherLogin = async (c: Context) => {
       password: string;
     }>();
 
-    if (!teacherId) throw CustomError.badRequest("Id Not Provided");
-    if (!name) throw CustomError.badRequest("Name Not Provided");
-    if (!password) throw CustomError.badRequest("Password Not Provided");
+    // Validation
+    if (!teacherId || !name || !password) {
+      return c.json(
+        ResponseUtil.validationError("All fields are required", {
+          teacherId: !teacherId ? "Teacher ID is required" : null,
+          name: !name ? "Name is required" : null,
+          password: !password ? "Password is required" : null,
+        })
+      );
+    }
 
     const teacher = await prisma.teacher.findUnique({
       where: { teacherId, name },
     });
 
-    if (!teacher) throw CustomError.notFound("Teacher not found!");
+    if (!teacher) {
+      return c.json(ResponseUtil.notFound("Teacher not found"));
+    }
 
     const isMatch = await comparePassword(password, teacher.password);
-    if (!isMatch) throw CustomError.unauthorized("Incorrect password!");
+    if (!isMatch) {
+      return c.json(ResponseUtil.unauthorized("Incorrect password"));
+    }
 
-    const token = await sign(
+    const tokens = await generateTokens(
       {
         id: teacher.teacherId,
         name: teacher.name,
         sub: teacher.teacherId,
         role: "teacher",
-        exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
       },
       env(c, "node").JWT_SECRET
     );
 
-    const refreshToken = await sign(
-      {
-        id: teacher.teacherId,
-        name: teacher.name,
-        sub: teacher.teacherId,
-        role: "teacher",
-        exp: Math.floor(Date.now() / 1000) + 2592000, // Token expires in 30 days
-      },
-      env(c, "node").JWT_SECRET
-    );
-
-    const { password: _, ...rest } = teacher;
+    const { password: _, ...teacherData } = teacher;
 
     return c.json(
-      CustomResponse.success("Teacher logged in successfully", {
-        ...rest,
-        token,
-        refreshToken,
-      })
+      ResponseUtil.success(
+        {
+          ...teacherData,
+          ...tokens,
+        },
+        "Teacher logged in successfully"
+      )
     );
   } catch (error) {
-    throw CustomError.fromPrismaError(error);
+    if (error instanceof Error) {
+      return c.json(ResponseUtil.internalError(error.message));
+    }
+    return c.json(ResponseUtil.internalError());
   }
 };

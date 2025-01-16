@@ -11,10 +11,9 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 
 
-import CustomError from "@/backend/response/CustomError";
 import auth from "@/backend/routers/auth.router";
-import { login } from "@/backend/controllers/auth.controller";
-
+import { HTTPException } from 'hono/http-exception';
+import { ResponseUtil } from "@/backend/core/ResponseUtil";
 
 export const runtime = "nodejs";
 
@@ -30,6 +29,7 @@ const app = new Hono<{ Variables: Variables; Bindings: Bindings }>({
   strict: true,
 }).basePath("/api");
 
+// Middleware
 app.use(prettyJSON());
 app.use(logger());
 app.use(cors());
@@ -43,6 +43,7 @@ app.use("*", async (ctx, next) => {
   }
 });
 
+// JWT Middleware for versioned routes
 app.use("/v1/*", (c, next) => {
   const jwtMiddleware = jwt({
     secret: process.env.JWT_SECRET || "",
@@ -50,49 +51,42 @@ app.use("/v1/*", (c, next) => {
   return jwtMiddleware(c, next);
 });
 
-// Custom error handler
-app.onError((err: Error, c) => {
-  if (err instanceof CustomError) {
-    // Handle custom errors
-    return c.json(
-      {
-        error: {
-          name: err.name,
-          message: err.message,
-        },
-      },
-      err.statusCode
-    );
-  }
-  // Handle generic errors
-  return c.json(
-    {
-      data: {
-        cause: err.cause,
-        name: err.name || "Internal Server Error",
-        message: err.message || "Something went wrong!",
-      },
-    },
-    500
-  );
-});
 
-app.get("/hello", (c) => {
-  console.log(c.req.path);
-  
-  return c.json({
-    message: "Hello Next.js!",
+
+// Error handler middleware
+app.onError((err, c) => {
+  console.error("=== Caught Error ===", err);
+
+  const response = ResponseUtil.error(err.message || 'An unexpected error occurred', {
+    message: err.message,
+    stack: err.stack // Optional: include stack trace for debugging
   });
+
+  return c.json(response, err instanceof HTTPException ? err.status : 500);
 });
 
-// app.post("/student/login", login);
+
+// Routes
+app.get("/hello", (c) => {
+  const responseData = {
+    message: "Hello Next.js!",
+  };
+  return c.json(ResponseUtil.success(responseData, "Greeting sent successfully"));
+});
+
+
 app.route("/auth", auth);
 
-
 app.get("/v1/users", (c) => {
-  return c.text("You are authorized");
+  return c.json(ResponseUtil.success(null, "You are authorized"));
+});
+
+// Example of an error-prone route
+app.get("/v1/error-prone", async (c) => {
+  throw new Error("This is a simulated error.");
 });
 
 
+// Export handlers for Vercel
 export const GET = handle(app);
 export const POST = handle(app);
