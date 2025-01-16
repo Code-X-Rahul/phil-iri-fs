@@ -82,7 +82,7 @@ app.get("/v1/users", (c) => {
 });
 
 // Example of an error-prone route
-app.get("/v1/error-prone", async (c) => {
+app.get("/v1/error-prone", async () => {
   throw new Error("This is a simulated error.");
 });
 
