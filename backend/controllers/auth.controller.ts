@@ -1,11 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 import type { Context } from "hono";
 import { env } from "hono/adapter";
-import { HTTPException } from "hono/http-exception";
 import { sign } from "hono/jwt";
 import { comparePassword, encryptPassword } from "../utils/helpers";
-import CustomError from "../response/CustomError";
-import { customResponse } from "../response/customResponse";
+import { CustomError } from "../core/CustomError";
+import { CustomResponse } from "../core/CustomResponse";
+
 
 const prisma = new PrismaClient();
 
@@ -16,12 +16,8 @@ export const register = async (c: Context) => {
       password: string;
     }>();
 
-    if (!name) {
-      throw new CustomError("Name Not Provided", 400);
-    }
-    if (!password) {
-      throw new CustomError("Password Not Provided", 400);
-    }
+    if (!name) throw CustomError.badRequest("Name Not Provided");
+    if (!password) throw CustomError.badRequest("Password Not Provided");
 
     const hashedPassword = await encryptPassword(password);
     const createdStudent = await prisma.student.create({
@@ -32,7 +28,6 @@ export const register = async (c: Context) => {
       {
         id: createdStudent.studentId,
         name: createdStudent.name,
-        email: createdStudent.email,
         sub: createdStudent.studentId,
         role: "admin",
         exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
@@ -50,25 +45,18 @@ export const register = async (c: Context) => {
       },
       env(c, "node").JWT_SECRET
     );
-    const { password: studentPassword, ...rest } = createdStudent;
-    return customResponse(c, {
-      data: {
+
+    const { password: _, ...rest } = createdStudent;
+
+    return c.json(
+      CustomResponse.success("Student registered successfully", {
         ...rest,
         token,
         refreshToken,
-      },
-      message: "Student registered successfully",
-      status: true,
-    });
+      })
+    );
   } catch (error) {
-    throw new HTTPException(500, {
-      res: customResponse(c, {
-        data: null,
-        error: error,
-        message: "Internal server error",
-        status: false,
-      }),
-    });
+    throw CustomError.fromPrismaError(error);
   }
 };
 
@@ -80,45 +68,30 @@ export const login = async (c: Context) => {
       password: string;
     }>();
 
-    if (!studentId) {
-      throw new CustomError("Id Not Provided", 400);
-    }
-
-    if (!name) {
-      throw new CustomError("Name Not Provided", 400);
-    }
-    if (!password) {
-      throw new CustomError("Password Not Provided", 400);
-    }
+    if (!studentId) throw CustomError.badRequest("Id Not Provided");
+    if (!name) throw CustomError.badRequest("Name Not Provided");
+    if (!password) throw CustomError.badRequest("Password Not Provided");
 
     const student = await prisma.student.findUnique({
-      where: {
-        studentId,
-        name,
-      },
+      where: { studentId, name },
     });
 
-    if (!student) {
-      throw new CustomError("Student not found!", 404);
-    }
+    if (!student) throw CustomError.notFound("Student not found!");
 
     const isMatch = await comparePassword(password, student.password);
-
-    if (!isMatch) {
-      throw new CustomError("Incorrect password!", 402);
-    }
+    if (!isMatch) throw CustomError.unauthorized("Incorrect password!");
 
     const token = await sign(
       {
         id: student.studentId,
         name: student.name,
-        email: student.email,
         sub: student.studentId,
         role: "student",
         exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
       },
       env(c, "node").JWT_SECRET
     );
+
     const refreshToken = await sign(
       {
         id: student.studentId,
@@ -130,26 +103,17 @@ export const login = async (c: Context) => {
       env(c, "node").JWT_SECRET
     );
 
-    const { password: studentPassword, ...rest } = student;
+    const { password: _, ...rest } = student;
 
-    return customResponse(c, {
-      data: {
+    return c.json(
+      CustomResponse.success("Student logged in successfully", {
         ...rest,
         token,
         refreshToken,
-      },
-      message: "Student logged in successfully",
-      status: true,
-    });
+      })
+    );
   } catch (error) {
-    throw new HTTPException(500, {
-      res: customResponse(c, {
-        data: null,
-        error: error,
-        message: "Internal server error",
-        status: false,
-      }),
-    });
+    throw CustomError.fromPrismaError(error);
   }
 };
 
@@ -161,30 +125,19 @@ export const teacherRegister = async (c: Context) => {
       password: string;
     }>();
 
-
-    if (!email) {
-      throw new CustomError("Email Not Provided", 400);
-    }
-
-    if (!name) {
-      throw new CustomError("Name not provided!", 400);
-    }
-    if (!password) {
-      throw new CustomError("Password not provided!", 400);
-    }
+    if (!email) throw CustomError.badRequest("Email Not Provided");
+    if (!name) throw CustomError.badRequest("Name Not Provided");
+    if (!password) throw CustomError.badRequest("Password Not Provided");
 
     const hashedPassword = await encryptPassword(password);
     const teacher = await prisma.teacher.create({
       data: { name, password: hashedPassword, email },
     });
 
-    if (!teacher) throw new CustomError("Failed to register!", 500);
-
     const token = await sign(
       {
         id: teacher.teacherId,
         name: teacher.name,
-        email: teacher.email,
         sub: teacher.teacherId,
         role: "teacher",
         exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
@@ -203,19 +156,17 @@ export const teacherRegister = async (c: Context) => {
       env(c, "node").JWT_SECRET
     );
 
-    const { password: teacherPassword, ...rest } = teacher;
+    const { password: _, ...rest } = teacher;
 
-    return customResponse(c, {
-      data: {
+    return c.json(
+      CustomResponse.success("Teacher registered successfully", {
         ...rest,
         token,
         refreshToken,
-      },
-      message: "Teacher registered successfully",
-      status: true,
-    });
+      })
+    );
   } catch (error) {
-    throw new CustomError("Failed to register!", 500);
+    throw CustomError.fromPrismaError(error);
   }
 };
 
@@ -227,45 +178,30 @@ export const teacherLogin = async (c: Context) => {
       password: string;
     }>();
 
-    if (!teacherId) {
-      throw new CustomError("Id not provided!", 400);
-    }
-
-    if (!name) {
-      throw new CustomError("Name not provided!", 400);
-    }
-    if (!password) {
-      throw new CustomError("Password not provided!", 400);
-    }
+    if (!teacherId) throw CustomError.badRequest("Id Not Provided");
+    if (!name) throw CustomError.badRequest("Name Not Provided");
+    if (!password) throw CustomError.badRequest("Password Not Provided");
 
     const teacher = await prisma.teacher.findUnique({
-      where: {
-        teacherId,
-        name,
-      },
+      where: { teacherId, name },
     });
 
-    if (!teacher) {
-      throw new CustomError("Teacher not found!", 400);
-    }
+    if (!teacher) throw CustomError.notFound("Teacher not found!");
 
     const isMatch = await comparePassword(password, teacher.password);
-
-    if (!isMatch) {
-      throw new CustomError("Incorrect password!", 400);
-    }
+    if (!isMatch) throw CustomError.unauthorized("Incorrect password!");
 
     const token = await sign(
       {
         id: teacher.teacherId,
         name: teacher.name,
-        email: teacher.email,
         sub: teacher.teacherId,
         role: "teacher",
         exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
       },
       env(c, "node").JWT_SECRET
     );
+
     const refreshToken = await sign(
       {
         id: teacher.teacherId,
@@ -277,18 +213,16 @@ export const teacherLogin = async (c: Context) => {
       env(c, "node").JWT_SECRET
     );
 
-    const { password: teacherPassword, ...rest } = teacher;
+    const { password: _, ...rest } = teacher;
 
-    return customResponse(c, {
-      data: {
+    return c.json(
+      CustomResponse.success("Teacher logged in successfully", {
         ...rest,
         token,
         refreshToken,
-      },
-      message: "Teacher logged in successfully",
-      status: true,
-    });
+      })
+    );
   } catch (error) {
-    throw new CustomError("Internal server error", 500)
+    throw CustomError.fromPrismaError(error);
   }
 };
