@@ -2,7 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import type { Context } from "hono";
 import { env } from "hono/adapter";
 import { ResponseUtil } from "../core/ResponseUtil";
-import { comparePassword, encryptPassword, generateTokens } from "../utils/helpers";
+import { comparePassword, encryptPassword, generateTokens } from '../utils/helpers';
+import { decode, verify } from "hono/jwt";
 
 
 const prisma = new PrismaClient();
@@ -229,3 +230,76 @@ export const teacherLogin = async (c: Context) => {
     return c.json(ResponseUtil.internalError());
   }
 };
+
+
+export const getAccessToken = async (c: Context) => {
+  try {
+    const refreshToken = c.req.header("Authorization")
+
+    if (!refreshToken) return c.json(ResponseUtil.unauthorized("Refresh Token not found."))
+
+    const payload = await verify(refreshToken, env(c, "node").JWT_SECRET)
+
+    if (payload.role === "teacher" && payload.id) {
+      const teacher = await prisma.teacher.findUnique({
+        where: {
+          teacherId: +payload?.id
+        }
+      })
+
+      if (!teacher) {
+        return c.json(ResponseUtil.badRequest("Invalid token"))
+      }
+
+      const tokens = await generateTokens({
+        id: teacher.teacherId,
+        sub: teacher.teacherId,
+        role: "teacher",
+      }, env(c, "node").JWT_SECRET)
+
+      const { password: _, ...teacherData } = teacher
+
+      return c.json(ResponseUtil.success({
+        ...teacherData,
+        ...tokens,
+      },
+        "Access token refreshed successfully"
+      ))
+    }
+    if (payload.role === "student" && payload.id) {
+      const student = await prisma.student.findUnique({
+        where: {
+          studentId: +payload?.id
+        }
+      })
+
+      if (!student) {
+        return c.json(ResponseUtil.badRequest("Invalid token"))
+      }
+
+      const tokens = await generateTokens({
+        id: student.studentId,
+        sub: student.studentId,
+        role: "student",
+      }, env(c, "node").JWT_SECRET)
+
+      const { password: _, ...studentData } = student
+
+      return c.json(ResponseUtil.success({
+        ...studentData,
+        ...tokens,
+      },
+        "Access token refreshed successfully"
+      ))
+    }
+
+    return c.json(ResponseUtil.forbidden("Invalid refresh token"))
+
+
+  } catch (error) {
+    if (error instanceof Error) {
+      return c.json(ResponseUtil.internalError(error.message));
+    }
+    return c.json(ResponseUtil.internalError());
+  }
+}
