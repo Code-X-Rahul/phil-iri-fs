@@ -14,6 +14,7 @@ import { prettyJSON } from "hono/pretty-json";
 import auth from "@/backend/routers/auth.router";
 import { HTTPException } from 'hono/http-exception';
 import { ResponseUtil } from "@/backend/core/ResponseUtil";
+import studentRouter from "@/backend/routers/students.router";
 
 export const runtime = "nodejs";
 
@@ -76,10 +77,7 @@ app.get("/hello", (c) => {
 
 
 app.route("/auth", auth);
-
-app.get("/v1/users", (c) => {
-  return c.json(ResponseUtil.success(null, "You are authorized"));
-});
+app.route("/", studentRouter)
 
 // Example of an error-prone route
 app.get("/v1/error-prone", async () => {

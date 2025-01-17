@@ -30,7 +30,7 @@ export const comparePassword = async (
 
 interface AuthTokenPayload {
   id: number;
-  name: string;
+  userName?: string;
   sub: number;
   role: "student" | "teacher" | "admin";
 }

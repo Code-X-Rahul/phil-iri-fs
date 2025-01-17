@@ -11,16 +11,16 @@ const prisma = new PrismaClient();
 // Student Authentication
 export const register = async (c: Context) => {
   try {
-    const { name, password } = await c.req.json<{
-      name: string;
+    const { userName, password } = await c.req.json<{
+      userName: string;
       password: string;
     }>();
 
     // Validation
-    if (!name || !password) {
+    if (!userName || !password) {
       return c.json(
         ResponseUtil.validationError("Name and password are required", {
-          name: !name ? "Name is required" : null,
+          name: !userName ? "userName is required" : null,
           password: !password ? "Password is required" : null,
         })
       );
@@ -28,13 +28,13 @@ export const register = async (c: Context) => {
 
     const hashedPassword = await encryptPassword(password);
     const createdStudent = await prisma.student.create({
-      data: { name, password: hashedPassword },
+      data: { userName, password: hashedPassword },
     });
 
     const tokens = await generateTokens(
       {
         id: createdStudent.studentId,
-        name: createdStudent.name,
+        userName: createdStudent.userName,
         sub: createdStudent.studentId,
         role: "student",
       },
@@ -62,25 +62,24 @@ export const register = async (c: Context) => {
 
 export const login = async (c: Context) => {
   try {
-    const { studentId, name, password } = await c.req.json<{
-      studentId: number;
-      name: string;
+    const { userName, password } = await c.req.json<{
+
+      userName: string;
       password: string;
     }>();
 
     // Validation
-    if (!studentId || !name || !password) {
+    if (!userName || !password) {
       return c.json(
         ResponseUtil.validationError("All fields are required", {
-          studentId: !studentId ? "Student ID is required" : null,
-          name: !name ? "Name is required" : null,
+          userName: !userName ? "userName is required" : null,
           password: !password ? "Password is required" : null,
         })
       );
     }
 
     const student = await prisma.student.findUnique({
-      where: { studentId, name },
+      where: { userName },
     });
 
     if (!student) {
@@ -95,7 +94,7 @@ export const login = async (c: Context) => {
     const tokens = await generateTokens(
       {
         id: student.studentId,
-        name: student.name,
+        userName: student.userName,
         sub: student.studentId,
         role: "student",
       },
@@ -124,18 +123,17 @@ export const login = async (c: Context) => {
 // Teacher Authentication
 export const teacherRegister = async (c: Context) => {
   try {
-    const { email, name, password } = await c.req.json<{
+    const { email, password } = await c.req.json<{
       email: string;
-      name: string;
+
       password: string;
     }>();
 
     // Validation
-    if (!email || !name || !password) {
+    if (!email || !password) {
       return c.json(
         ResponseUtil.validationError("All fields are required", {
           email: !email ? "Email is required" : null,
-          name: !name ? "Name is required" : null,
           password: !password ? "Password is required" : null,
         })
       );
@@ -143,13 +141,12 @@ export const teacherRegister = async (c: Context) => {
 
     const hashedPassword = await encryptPassword(password);
     const teacher = await prisma.teacher.create({
-      data: { name, password: hashedPassword, email },
+      data: { password: hashedPassword, email },
     });
 
     const tokens = await generateTokens(
       {
         id: teacher.teacherId,
-        name: teacher.name,
         sub: teacher.teacherId,
         role: "teacher",
       },
@@ -177,25 +174,23 @@ export const teacherRegister = async (c: Context) => {
 
 export const teacherLogin = async (c: Context) => {
   try {
-    const { teacherId, name, password } = await c.req.json<{
-      teacherId: number;
-      name: string;
+    const { email, password } = await c.req.json<{
+      email: string;
       password: string;
     }>();
 
     // Validation
-    if (!teacherId || !name || !password) {
+    if (!email || !password) {
       return c.json(
         ResponseUtil.validationError("All fields are required", {
-          teacherId: !teacherId ? "Teacher ID is required" : null,
-          name: !name ? "Name is required" : null,
+          email: !email ? "email is required" : null,
           password: !password ? "Password is required" : null,
         })
       );
     }
 
     const teacher = await prisma.teacher.findUnique({
-      where: { teacherId, name },
+      where: { email },
     });
 
     if (!teacher) {
@@ -210,7 +205,6 @@ export const teacherLogin = async (c: Context) => {
     const tokens = await generateTokens(
       {
         id: teacher.teacherId,
-        name: teacher.name,
         sub: teacher.teacherId,
         role: "teacher",
       },

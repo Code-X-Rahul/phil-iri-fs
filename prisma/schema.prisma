@@ -14,46 +14,84 @@ datasource db {
 }
 
 model Student {
-  studentId      Int      @id @default(autoincrement())
-  name           String
-  email          String?  @unique
+  studentId      Int             @id @default(autoincrement())
+  userName       String          @unique
+  email          String?         @unique
   password       String
-  registeredDate DateTime @default(now())
-  scores         Score[]
+  StudentProfile StudentProfile?
+}
+
+model StudentProfile {
+  profileId          Int       @id @default(autoincrement())
+  firstName          String?
+  middleName         String?
+  lastName           String?
+  dateOfBirth        DateTime?
+  gender             String?
+  section            String?
+  phoneNumber        String?
+  address            String?
+  grade              String?
+  parentName         String?
+  parentContact      String?
+  student            Student   @relation(fields: [studentId], references: [studentId])
+  studentId          Int       @unique // Makes this a one-to-one relation
+  scores             Score[]
+  registeredDate     DateTime  @default(now())
+  schoolYear         Int?
+  lastSchoolAttended String?
+  teacher            Teacher   @relation(fields: [teacherId], references: [teacherId])
+  teacherId          Int
 }
 
 model Teacher {
-  teacherId  Int        @id @default(autoincrement())
-  name       String
-  email      String     @unique
-  password   String
-  joinedDate DateTime   @default(now())
-  materials  Material[]
-  tests      Test[]
+  teacherId      Int              @id @default(autoincrement())
+  email          String           @unique
+  password       String
+  createdAt      DateTime         @default(now())
+  profile        TeacherProfile? // One-to-one relation with TeacherProfile
+  StudentProfile StudentProfile[]
+}
+
+model TeacherProfile {
+  profileId      Int        @id @default(autoincrement())
+  firstName      String?
+  lastName       String?
+  dateOfBirth    DateTime?
+  phoneNumber    String?
+  address        String?
+  qualification  String?
+  specialization String?
+  experience     Int?
+  teacher        Teacher    @relation(fields: [teacherId], references: [teacherId])
+  teacherId      Int        @unique // Makes this a one-to-one relation
+  tests          Test[]
+  materials      Material[]
+  joinedDate     DateTime   @default(now())
 }
 
 model Material {
-  materialId   Int      @id @default(autoincrement())
-  title        String
-  content      String // Can store file path or content
-  uploadedDate DateTime @default(now())
-  teacher      Teacher  @relation(fields: [teacherId], references: [teacherId])
-  teacherId    Int
-  tests        Test[]
+  materialId              Int             @id @default(autoincrement())
+  title                   String
+  content                 String // Can store file path or content
+  uploadedDate            DateTime        @default(now())
+  tests                   Test[]
+  TeacherProfile          TeacherProfile? @relation(fields: [teacherProfileProfileId], references: [profileId])
+  teacherProfileProfileId Int?
 }
 
 model Test {
-  testId           Int        @id @default(autoincrement())
-  title            String
-  createdDate      DateTime   @default(now())
-  startTime        DateTime
-  endTime          DateTime
-  material         Material   @relation(fields: [materialId], references: [materialId])
-  materialId       Int
-  questions        Question[]
-  scores           Score[]
-  Teacher          Teacher?   @relation(fields: [teacherTeacherId], references: [teacherId])
-  teacherTeacherId Int?
+  testId                  Int             @id @default(autoincrement())
+  title                   String
+  createdDate             DateTime        @default(now())
+  startTime               DateTime
+  endTime                 DateTime
+  material                Material        @relation(fields: [materialId], references: [materialId])
+  materialId              Int
+  questions               Question[]
+  scores                  Score[]
+  TeacherProfile          TeacherProfile? @relation(fields: [teacherProfileProfileId], references: [profileId])
+  teacherProfileProfileId Int?
 }
 
 model Question {
@@ -66,11 +104,11 @@ model Question {
 }
 
 model Score {
-  scoreId   Int      @id @default(autoincrement())
-  score     Int
-  dateTaken DateTime @default(now())
-  student   Student  @relation(fields: [studentId], references: [studentId])
-  studentId Int
-  test      Test     @relation(fields: [testId], references: [testId])
-  testId    Int
+  scoreId                 Int             @id @default(autoincrement())
+  score                   Int
+  dateTaken               DateTime        @default(now())
+  test                    Test            @relation(fields: [testId], references: [testId])
+  testId                  Int
+  StudentProfile          StudentProfile? @relation(fields: [studentProfileProfileId], references: [profileId])
+  studentProfileProfileId Int?
 }
