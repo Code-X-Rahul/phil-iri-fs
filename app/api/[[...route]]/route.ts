@@ -31,9 +31,9 @@ const app = new Hono<{ Variables: Variables; Bindings: Bindings }>({
 }).basePath("/api");
 
 // Middleware
+app.use(cors());
 app.use(prettyJSON());
 app.use(logger());
-app.use(cors());
 
 // Middleware to close Prisma connections gracefully
 app.use("*", async (ctx, next) => {
