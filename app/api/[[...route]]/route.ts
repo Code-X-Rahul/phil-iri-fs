@@ -31,7 +31,10 @@ const app = new Hono<{ Variables: Variables; Bindings: Bindings }>({
 }).basePath("/api");
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:3000", "https://phil-iri.vercel.app/"],
+
+}));
 app.use(prettyJSON());
 app.use(logger());
 
